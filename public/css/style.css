@@ -131,7 +131,14 @@ body {
   text-transform: uppercase;
   border: 1px solid transparent;
 }
-.badge-active, .badge-confirmé {
+.badge-active {
+  background: rgba(46, 160, 67, 0.25);
+  border-color: #3fb950;
+  color: #56d364;
+  font-weight: 700;
+  box-shadow: 0 0 8px rgba(63,185,80,0.2);
+}
+.badge-confirmé {
   background: var(--status-confirm-bg);
   border-color: var(--status-confirm-border);
   color: var(--status-confirm-text);
@@ -170,51 +177,66 @@ header {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
-.header-logo {
+/* --- Header brand redesign --- */
+.header-brand {
   display: flex;
+  flex-direction: column;
   align-items: center;
+  line-height: 1;
+  gap: 2px;
   cursor: pointer;
-  gap: 12px;
 }
 
-.logo-triangle {
-  width: 0;
-  height: 0;
-  border-left: 10px solid transparent;
-  border-right: 10px solid transparent;
-  border-bottom: 16px solid var(--accent-orange);
-  filter: drop-shadow(0 0 5px var(--accent-orange-glow));
+.hb-le {
+  font-family: var(--font-body);
+  font-size: 0.55rem;
+  letter-spacing: 0.6em;
+  color: var(--text-secondary);
+  padding-right: 0.5em;
 }
 
-.logo-text {
+.hb-word {
+  display: flex;
+  align-items: flex-end;
   font-family: var(--font-sub);
-  font-size: 1.2rem;
-  letter-spacing: 0.15em;
-  font-weight: 700;
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text-primary);
 }
 
-.logo-text .accent-text {
-  color: var(--accent-orange);
-}
-
-.header-candle {
+.hb-i-wrap {
   position: relative;
-  width: 8px;
-  height: 14px;
+  display: inline-flex;
+  align-items: flex-end;
 }
 
-.header-candle .flame {
+.hb-flame-mini {
   position: absolute;
-  top: -12px;
-  left: 2px;
-  width: 6px;
-  height: 10px;
-  background: radial-gradient(circle, #fff 20%, var(--accent-gold) 60%, var(--accent-orange) 100%);
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 7px;
+  height: 12px;
+  background: radial-gradient(circle at 50% 80%, #fff 5%, var(--accent-gold) 35%, var(--accent-orange) 75%, transparent 100%);
   border-radius: 50% 50% 35% 35%;
-  transform: rotate(-3deg);
   animation: flicker 0.15s ease-in-out infinite alternate;
   filter: drop-shadow(0 0 4px var(--accent-orange));
+  pointer-events: none;
 }
+
+.hb-delta {
+  color: var(--accent-orange);
+  filter: drop-shadow(0 0 6px rgba(255,87,34,0.6));
+  font-size: 0.8em;
+  display: inline-block;
+  transform: translateY(-1px);
+}
+
+.hb-letters, .hb-i {
+  /* inherits from hb-word */
+}
+
 
 .header-nav {
   display: flex;
@@ -487,10 +509,16 @@ header {
    ========================================================================== */
 .section-title {
   font-family: var(--font-title);
-  font-size: 2.2rem;
+  font-size: 4rem;
   text-align: center;
   letter-spacing: 0.1em;
   margin-bottom: 5px;
+}
+
+.title-delta {
+  color: var(--accent-orange);
+  filter: drop-shadow(0 0 12px rgba(255,87,34,0.6));
+  display: inline-block;
 }
 
 .section-subtitle {
@@ -533,11 +561,62 @@ header {
   transition: var(--transition-smooth);
 }
 
-.menu-card-icon {
-  color: var(--accent-orange);
-  margin-bottom: 25px;
-  filter: drop-shadow(0 4px 6px rgba(255, 87, 34, 0.15));
+/* Menu card icons - Pro glow circle wrapper */
+.menu-icon-bg {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(255,143,0,0.15) 0%, rgba(255,87,34,0.03) 70%);
+  border: 1px solid rgba(255,87,34,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: var(--transition-smooth);
+}
+
+.menu-card:hover .menu-icon-bg {
+  background: radial-gradient(circle, rgba(255,143,0,0.28) 0%, rgba(255,87,34,0.08) 70%);
+  border-color: rgba(255,87,34,0.45);
+  transform: scale(1.1);
+  box-shadow: 0 0 20px rgba(255,87,34,0.15);
+}
+
+/* View title triangle prefix */
+.view-title-tri {
+  color: var(--accent-orange);
+  font-size: 0.7em;
+  filter: drop-shadow(0 0 6px rgba(255,87,34,0.6));
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/* Card title row with badge inline */
+.card-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.card-title-row .card-title {
+  margin-bottom: 0;
+  flex: 1;
+  min-width: 0;
+}
+.card-title-row .badge {
+  flex-shrink: 0;
+  font-size: 0.68rem;
+  padding: 3px 8px;
+}
+
+
+
+/* Menu card icon container */
+.menu-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 25px;
 }
 
 .menu-card h3 {
@@ -696,7 +775,7 @@ header {
   background-color: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: 6px;
-  padding: 12px 15px 12px 42px;
+  padding: 12px 15px 12px 50px;
   color: var(--text-primary);
   font-family: var(--font-body);
   font-size: 0.95rem;

@@ -50,24 +50,29 @@ function router() {
     view = 'welcome';
   } else if (hash.startsWith('#menu')) {
     view = 'menu';
-  } else if (hash.startsWith('#groups')) {
-    view = 'groups';
   } else if (hash.startsWith('#group-form')) {
+    // must be checked BEFORE '#group/' and '#groups'
     view = 'group-form';
+    id = hash.split('/')[1] || null;
   } else if (hash.startsWith('#group/')) {
     view = 'group-detail';
     id = hash.split('/')[1];
-  } else if (hash.startsWith('#venues')) {
-    view = 'venues';
+  } else if (hash.startsWith('#groups')) {
+    view = 'groups-list';
   } else if (hash.startsWith('#venue-form')) {
+    // must be checked BEFORE '#venue/' and '#venues'
     view = 'venue-form';
+    id = hash.split('/')[1] || null;
   } else if (hash.startsWith('#venue/')) {
     view = 'venue-detail';
     id = hash.split('/')[1];
+  } else if (hash.startsWith('#venues')) {
+    view = 'venues-list';
   } else if (hash.startsWith('#calendar')) {
     view = 'calendar';
   } else if (hash.startsWith('#programming-form')) {
     view = 'programming-form';
+    id = hash.split('/')[1] || null;
   }
 
   // Charger la vue correspondante
@@ -95,7 +100,11 @@ function showView(viewName, id = null) {
   document.querySelectorAll('.nav-btn').forEach(btn => {
     btn.classList.remove('active');
     const target = btn.dataset.target;
-    if (viewName.startsWith(target) || (target === 'calendar' && viewName === 'programming-form')) {
+    const viewRoot = viewName.replace('-list', '').replace('-detail', '').replace('-form', '');
+    if (viewRoot === target || 
+        (target === 'groups' && (viewName === 'groups-list' || viewName === 'group-detail' || viewName === 'group-form')) ||
+        (target === 'venues' && (viewName === 'venues-list' || viewName === 'venue-detail' || viewName === 'venue-form')) ||
+        (target === 'calendar' && viewName === 'programming-form')) {
       btn.classList.add('active');
     }
   });
@@ -111,7 +120,7 @@ function showView(viewName, id = null) {
     case 'menu':
       // Rien de particulier à charger
       break;
-    case 'groups':
+    case 'groups-list':
       loadGroupsList();
       break;
     case 'group-detail':
@@ -120,7 +129,7 @@ function showView(viewName, id = null) {
     case 'group-form':
       setupGroupForm(id);
       break;
-    case 'venues':
+    case 'venues-list':
       loadVenuesList();
       break;
     case 'venue-detail':
@@ -199,7 +208,19 @@ function registerGlobalEvents() {
   document.getElementById('venue-form-back-btn').addEventListener('click', () => window.history.back());
   document.getElementById('programming-form-back-btn').addEventListener('click', () => window.history.back());
 
-  // Calendrier boutons toolbar
+  // Boutons de retour fiches détail (data-target)
+  document.querySelectorAll('.back-link[data-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.location.hash = `#${btn.dataset.target}`;
+    });
+  });
+
+  // Upload Photo Lieu
+  document.getElementById('upload-venue-photo-btn').addEventListener('click', () => {
+    document.getElementById('venue-photo-file').click();
+  });
+  document.getElementById('venue-photo-file').addEventListener('change', handleVenuePhotoUpload);
+
   document.getElementById('cal-prev-btn').addEventListener('click', () => changeMonth(-1));
   document.getElementById('cal-next-btn').addEventListener('click', () => changeMonth(1));
   document.getElementById('cal-today-btn').addEventListener('click', () => {
@@ -211,6 +232,12 @@ function registerGlobalEvents() {
   document.getElementById('modal-close-btn').addEventListener('click', closeModal);
   document.getElementById('event-modal').addEventListener('click', (e) => {
     if (e.target.id === 'event-modal') closeModal();
+  });
+
+  // Custom Delete Modal cancel button & backdrop clicks
+  document.getElementById('confirm-delete-cancel-btn').addEventListener('click', closeDeleteModal);
+  document.getElementById('confirm-delete-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'confirm-delete-modal') closeDeleteModal();
   });
 
   // Formulaire Concert : check gratuite vs prix
@@ -252,6 +279,31 @@ function closeModal() {
   document.getElementById('event-modal').classList.add('hidden');
 }
 
+// --- CUSTOM DELETE MODAL ---
+let currentDeleteCallback = null;
+
+function openDeleteModal(message, confirmCallback) {
+  const modal = document.getElementById('confirm-delete-modal');
+  document.getElementById('confirm-delete-message').innerText = message;
+  currentDeleteCallback = confirmCallback;
+  modal.classList.remove('hidden');
+}
+
+function closeDeleteModal() {
+  document.getElementById('confirm-delete-modal').classList.add('hidden');
+  currentDeleteCallback = null;
+}
+
+// Handle Custom Delete Confirm Action
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('confirm-delete-btn').addEventListener('click', async () => {
+    if (currentDeleteCallback) {
+      await currentDeleteCallback();
+    }
+    closeDeleteModal();
+  });
+});
+
 // ==========================================================================
 // 1. GROUPES LOGIQUE
 // ==========================================================================
@@ -289,17 +341,17 @@ function renderGroupsGrid(groupsList) {
     card.innerHTML = `
       <div class="card-image-box">
         ${photoHtml}
-        <div class="card-badge-container">
-          <span class="badge badge-${group.status.toLowerCase().replace(' ', '-')}">${group.status}</span>
-        </div>
       </div>
       <div class="card-body">
-        <h4 class="card-title">${group.name}</h4>
+        <div class="card-title-row">
+          <h4 class="card-title">${group.name}</h4>
+          <span class="badge badge-${group.status.toLowerCase().replace(' ', '-')}">${group.status}</span>
+        </div>
         <div class="card-meta">${group.musical_style || 'Style non spécifié'}</div>
         <p class="card-desc">${group.description || 'Pas de description renseignée.'}</p>
         <div class="card-footer-info">
           <span>
-            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z"/></svg>
+            <svg width="12" height="12" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0"/><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z"/></svg>
             ${group.city || 'Ville inconnue'}
           </span>
           <span>Créé en ${group.creation_date || 'N/C'}</span>
@@ -374,7 +426,7 @@ function renderGroupProfile(group) {
           </div>
           <div class="gig-details-box">
             <div class="gig-title">${gig.event_name}</div>
-            <div class="gig-link-ref">à <a href="#venue/${gig.venue_id}" style="color: var(--accent-orange); text-decoration: none;">${gig.venue_name}</a> (${gig.venue_city})</div>
+            <div class="gig-link-ref">à <a href="#venue/${gig.venue_id}" style="color: var(--accent-orange); text-decoration: none;">${gig.venue_name}</a></div>
           </div>
           <span class="badge badge-${gig.status.toLowerCase()}">${gig.status}</span>
         </div>
@@ -447,19 +499,22 @@ function renderGroupProfile(group) {
 }
 
 async function deleteGroupRecord(id) {
-  if (confirm('Voulez-vous vraiment supprimer ce groupe définitivement ? Tous les concerts liés seront supprimés.')) {
-    try {
-      const response = await fetch(`/api/groups/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        showToast('Groupe supprimé avec succès.');
-        window.location.hash = '#groups';
-      } else {
-        throw new Error();
+  openDeleteModal(
+    'Voulez-vous vraiment supprimer ce groupe définitivement ? Tous les concerts liés seront supprimés.',
+    async () => {
+      try {
+        const response = await fetch(`/api/groups/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          showToast('Groupe supprimé avec succès.');
+          window.location.hash = '#groups';
+        } else {
+          throw new Error();
+        }
+      } catch (error) {
+        showToast('Erreur lors de la suppression.', 'error');
       }
-    } catch (error) {
-      showToast('Erreur lors de la suppression.', 'error');
     }
-  }
+  );
 }
 
 // --- FORM GROUPE ---
@@ -506,6 +561,29 @@ async function setupGroupForm(id = null) {
   } else {
     title.innerText = 'Ajouter un Groupe';
     submitBtn.innerText = 'Enregistrer';
+  }
+}
+
+async function handleVenuePhotoUpload(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  const previewBox = document.getElementById('venue-photo-preview');
+  previewBox.innerHTML = '<div class="preview-placeholder">Téléchargement en cours...</div>';
+
+  try {
+    const res = await fetch('/api/upload', { method: 'POST', body: formData });
+    if (!res.ok) throw new Error();
+    const data = await res.json();
+    document.getElementById('venue-photo-url-input').value = data.photoUrl;
+    previewBox.innerHTML = `<img src="${data.photoUrl}" alt="Preview">`;
+    showToast('Image téléversée avec succès !');
+  } catch(err) {
+    previewBox.innerHTML = '<div class="preview-placeholder" style="color:var(--status-annule-text)">Erreur lors du chargement.</div>';
+    showToast("Impossible de charger l'image.", 'error');
   }
 }
 
@@ -619,8 +697,11 @@ function renderVenuesGrid(venuesList) {
     });
 
     card.innerHTML = `
-      <div class="card-image-box" style="height: 120px; background: linear-gradient(135deg, #25120d 0%, #0d0c11 100%);">
-        <svg class="image-fallback-icon" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="1.2"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" /></svg>
+      <div class="card-image-box" style="height: 140px; background: linear-gradient(135deg, #25120d 0%, #0d0c11 100%);">
+        ${ venue.photo_url
+          ? `<img src="${venue.photo_url}" alt="${venue.name}" style="width:100%;height:100%;object-fit:cover;">`
+          : `<svg class="image-fallback-icon" width="45" height="45" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="1.2"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0" /><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" /></svg>`
+        }
       </div>
       <div class="card-body">
         <h4 class="card-title">${venue.name}</h4>
@@ -705,8 +786,11 @@ function renderVenueProfile(venue) {
   container.innerHTML = `
     <!-- Left column -->
     <div class="profile-card">
-      <div class="profile-photo-container" style="background: linear-gradient(135deg, #16151c 0%, #0d0c11 100%);">
-        <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="1"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" /></svg>
+      <div class="profile-photo-container">
+        ${ venue.photo_url
+          ? `<img src="${venue.photo_url}" alt="${venue.name}">`
+          : `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="1"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0" /><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" /></svg>`
+        }
       </div>
       <div class="profile-info-body">
         <div class="profile-title-row">
@@ -841,19 +925,22 @@ function initVenueMap(coordinatesStr, venueName) {
 }
 
 async function deleteVenueRecord(id) {
-  if (confirm('Voulez-vous vraiment supprimer ce lieu définitivement ? Tous les concerts liés seront supprimés.')) {
-    try {
-      const response = await fetch(`/api/venues/${id}`, { method: 'DELETE' });
-      if (response.ok) {
-        showToast('Lieu supprimé avec succès.');
-        window.location.hash = '#venues';
-      } else {
-        throw new Error();
+  openDeleteModal(
+    'Voulez-vous vraiment supprimer ce lieu définitivement ? Tous les concerts liés seront supprimés.',
+    async () => {
+      try {
+        const response = await fetch(`/api/venues/${id}`, { method: 'DELETE' });
+        if (response.ok) {
+          showToast('Lieu supprimé avec succès.');
+          window.location.hash = '#venues';
+        } else {
+          throw new Error();
+        }
+      } catch (error) {
+        showToast('Erreur lors de la suppression.', 'error');
       }
-    } catch (error) {
-      showToast('Erreur lors de la suppression.', 'error');
     }
-  }
+  );
 }
 
 // --- FORM LIEU ---
@@ -864,6 +951,8 @@ async function setupVenueForm(id = null) {
   
   form.reset();
   document.getElementById('venue-id-input').value = '';
+  document.getElementById('venue-photo-url-input').value = '';
+  document.getElementById('venue-photo-preview').innerHTML = '<div class="preview-placeholder">Aucune image choisie</div>';
 
   if (id) {
     title.innerText = 'Modifier le Lieu';
@@ -889,6 +978,11 @@ async function setupVenueForm(id = null) {
       try { socials = JSON.parse(v.social_media || '{}'); } catch(e) {}
       document.getElementById('venue-social-fb').value = socials.facebook || '';
       document.getElementById('venue-social-ig').value = socials.instagram || '';
+
+      if (v.photo_url) {
+        document.getElementById('venue-photo-url-input').value = v.photo_url;
+        document.getElementById('venue-photo-preview').innerHTML = `<img src="${v.photo_url}" alt="Preview">`;
+      }
     } catch(e) {
       showToast('Erreur lors du chargement du lieu à modifier.', 'error');
     }
@@ -914,6 +1008,8 @@ async function handleVenueSubmit(e) {
   const hosting_conditions = document.getElementById('venue-conditions').value;
   const internal_notes = document.getElementById('venue-notes').value;
 
+  const photo_url = document.getElementById('venue-photo-url-input').value;
+
   const socials = {
     facebook: document.getElementById('venue-social-fb').value,
     instagram: document.getElementById('venue-social-ig').value
@@ -921,7 +1017,7 @@ async function handleVenueSubmit(e) {
 
   const payload = {
     name, type, address, gps_coordinates, capacity, website, contact_technical, contact_commercial,
-    equipment, hosting_conditions, internal_notes,
+    equipment, hosting_conditions, internal_notes, photo_url,
     social_media: JSON.stringify(socials)
   };
 
@@ -1084,7 +1180,7 @@ function showEventDetails(event) {
         </div>
         <div class="modal-info-row">
           <span>Lieu d'accueil :</span>
-          <span><a href="#venue/${event.venue_id}" onclick="closeModal()" style="color: var(--accent-orange); text-decoration:none; font-weight:600;">${event.venue_name}</a> (${event.venue_city})</span>
+          <span><a href="#venue/${event.venue_id}" onclick="closeModal()" style="color: var(--accent-orange); text-decoration:none; font-weight:600;">${event.venue_name}</a></span>
         </div>
         <div class="modal-info-row">
           <span>Date & Heure :</span>

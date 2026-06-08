@@ -35,6 +35,9 @@ const upload = multer({ storage: storage });
 const dbPath = path.join(__dirname, 'triangle.db');
 const db = new DatabaseSync(dbPath);
 
+// Enable Foreign Key constraints support
+db.exec('PRAGMA foreign_keys = ON;');
+
 // Create tables
 db.exec(`
   CREATE TABLE IF NOT EXISTS groups (
@@ -83,6 +86,11 @@ db.exec(`
     FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE
   );
 `);
+
+// Migration: add photo_url to venues if it doesn't exist yet
+try {
+  db.exec(`ALTER TABLE venues ADD COLUMN photo_url TEXT DEFAULT ''`);
+} catch(e) { /* column already exists, ignore */ }
 
 // Helper to check table size
 function isTableEmpty(tableName) {
@@ -369,7 +377,7 @@ app.get('/api/groups/:id', (req, res) => {
 
     // Fetch related gigs
     const gigsStmt = db.prepare(`
-      SELECT p.*, v.name as venue_name, v.type as venue_type, v.city as venue_city
+      SELECT p.*, v.name as venue_name, v.type as venue_type, v.address as venue_address
       FROM programmations p
       JOIN venues v ON p.venue_id = v.id
       WHERE p.group_id = ?
@@ -497,12 +505,12 @@ app.get('/api/venues/:id', (req, res) => {
 // POST create venue
 app.post('/api/venues', (req, res) => {
   try {
-    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes } = req.body;
+    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url } = req.body;
     if (!name) return res.status(400).json({ error: 'Le nom du lieu est obligatoire.' });
 
     const stmt = db.prepare(`
-      INSERT INTO venues (name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO venues (name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
       name,
@@ -516,7 +524,8 @@ app.post('/api/venues', (req, res) => {
       social_media || '{}',
       equipment || '',
       hosting_conditions || '',
-      internal_notes || ''
+      internal_notes || '',
+      photo_url || ''
     );
     res.status(201).json({ id: info.lastInsertRowid, message: 'Lieu créé avec succès.' });
   } catch (error) {
@@ -527,12 +536,12 @@ app.post('/api/venues', (req, res) => {
 // PUT update venue
 app.put('/api/venues/:id', (req, res) => {
   try {
-    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes } = req.body;
+    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url } = req.body;
     if (!name) return res.status(400).json({ error: 'Le nom du lieu est obligatoire.' });
 
     const stmt = db.prepare(`
       UPDATE venues
-      SET name = ?, type = ?, address = ?, gps_coordinates = ?, capacity = ?, contact_technical = ?, contact_commercial = ?, website = ?, social_media = ?, equipment = ?, hosting_conditions = ?, internal_notes = ?
+      SET name = ?, type = ?, address = ?, gps_coordinates = ?, capacity = ?, contact_technical = ?, contact_commercial = ?, website = ?, social_media = ?, equipment = ?, hosting_conditions = ?, internal_notes = ?, photo_url = ?
       WHERE id = ?
     `);
     const info = stmt.run(
@@ -548,6 +557,7 @@ app.put('/api/venues/:id', (req, res) => {
       equipment || '',
       hosting_conditions || '',
       internal_notes || '',
+      photo_url || '',
       req.params.id
     );
 
@@ -578,7 +588,7 @@ app.get('/api/programmations', (req, res) => {
   try {
     const stmt = db.prepare(`
       SELECT p.*, g.name as group_name, g.musical_style as group_style, g.photo_url as group_photo,
-             v.name as venue_name, v.type as venue_type, v.city as venue_city, v.gps_coordinates as venue_gps
+             v.name as venue_name, v.type as venue_type, v.address as venue_address
       FROM programmations p
       JOIN groups g ON p.group_id = g.id
       JOIN venues v ON p.venue_id = v.id
