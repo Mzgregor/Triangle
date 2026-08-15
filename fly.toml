@@ -1,6 +1,5 @@
-﻿# fly.toml - Configuration Fly.io pour Le Triangle
 app = 'le-triangle'
-primary_region = 'cdg'  # Paris datacenter
+primary_region = 'cdg'
 
 [build]
   dockerfile = 'Dockerfile'
