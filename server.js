@@ -12,8 +12,16 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Ensure uploads folder exists
-const uploadsDir = path.join(__dirname, 'public', 'uploads');
+// In production, uploaded files live in /data/uploads (outside public/).
+// Serve them under /uploads/ so the frontend URLs still work.
+if (process.env.NODE_ENV === 'production') {
+  app.use('/uploads', express.static('/data/uploads'));
+}
+
+// Ensure uploads folder exists — in production use /data/uploads
+const uploadsDir = process.env.NODE_ENV === 'production'
+  ? '/data/uploads'
+  : path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
@@ -32,7 +40,13 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // Database Initialization
-const dbPath = path.join(__dirname, 'triangle.db');
+// In production (Fly.io), data is stored in /data (persistent volume)
+// In development, it's stored next to server.js
+const DATA_DIR = process.env.NODE_ENV === 'production'
+  ? '/data'
+  : __dirname;
+
+const dbPath = path.join(DATA_DIR, 'triangle.db');
 const db = new DatabaseSync(dbPath);
 
 // Enable Foreign Key constraints support
