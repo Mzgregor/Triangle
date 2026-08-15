@@ -85,11 +85,23 @@ db.exec(`
     FOREIGN KEY(venue_id) REFERENCES venues(id) ON DELETE CASCADE,
     FOREIGN KEY(group_id) REFERENCES groups(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    password TEXT NOT NULL
+  );
 `);
 
-// Migration: add photo_url to venues if it doesn't exist yet
+// Migration: add photo_url, email, and phone to venues if they don't exist yet
 try {
   db.exec(`ALTER TABLE venues ADD COLUMN photo_url TEXT DEFAULT ''`);
+} catch(e) { /* column already exists, ignore */ }
+try {
+  db.exec(`ALTER TABLE venues ADD COLUMN email TEXT DEFAULT ''`);
+} catch(e) { /* column already exists, ignore */ }
+try {
+  db.exec(`ALTER TABLE venues ADD COLUMN phone TEXT DEFAULT ''`);
 } catch(e) { /* column already exists, ignore */ }
 
 // Helper to check table size
@@ -202,7 +214,9 @@ if (isTableEmpty('venues')) {
       social_media: JSON.stringify({ facebook: 'https://facebook.com/lesphinxparis' }),
       equipment: 'Système son d&b audiotechnik, console Soundcraft Vi2000, 24 projecteurs LED robotisés, kit micros complet, backline sur demande (batterie Ludwig, ampli basse Ampeg SVT).',
       hosting_conditions: 'Une grande loge équipée avec canapés, frigo garni et douche. Repas chaud fourni par le restaurant partenaire pour 6 personnes.',
-      internal_notes: 'Attention à la limite de bruit en fin de soirée à 102dB pour les voisins. Très bonne acoustique.'
+      internal_notes: 'Attention à la limite de bruit en fin de soirée à 102dB pour les voisins. Très bonne acoustique.',
+      email: 'contact@lesphinx.com',
+      phone: '01 44 55 66 77'
     },
     {
       name: 'La Cave aux Merveilles',
@@ -216,7 +230,9 @@ if (isTableEmpty('venues')) {
       social_media: JSON.stringify({ instagram: 'https://instagram.com/lacaveauxmerveilles' }),
       equipment: 'Petite sono HK Audio (2 têtes + 1 sub), table de mixage Soundcraft 12 voies, 4 spots LED statiques. Prévoir de ramener vos propres micros si spécifique.',
       hosting_conditions: 'Pas de loge fermée (coin vestiaire pour se changer). Bières et softs à volonté pour les musiciens. Planche charcuterie/fromage offerte.',
-      internal_notes: 'Public très chaleureux et réceptif. Scène surélevée de 30cm, assez petite (maximum 4 musiciens serrés).'
+      internal_notes: 'Public très chaleureux et réceptif. Scène surélevée de 30cm, assez petite (maximum 4 musiciens serrés).',
+      email: 'contact@lacaveauxmerveilles.com',
+      phone: '04 78 89 90 91'
     },
     {
       name: 'Le Grand Plein Air',
@@ -230,7 +246,9 @@ if (isTableEmpty('venues')) {
       social_media: JSON.stringify({}),
       equipment: 'Gros système de diffusion line array L-Acoustics K2, ponts de lumière complets, écran géant LED. Fiche technique fournie sur demande.',
       hosting_conditions: 'Catering VIP sur place. Mobil-homes individuels faisant office de loges avec douches et climatisation.',
-      internal_notes: 'Festival annuel en plein air uniquement en juillet. Gérer l\'alimentation électrique sur groupe électrogène.'
+      internal_notes: 'Festival annuel en plein air uniquement en juillet. Gérer l\'alimentation électrique sur groupe électrogène.',
+      email: 'booking@openairclisson.com',
+      phone: '06 99 88 77 66'
     },
     {
       name: 'Théâtre Antique',
@@ -244,17 +262,19 @@ if (isTableEmpty('venues')) {
       social_media: JSON.stringify({ instagram: 'https://instagram.com/theatreantiquevienne' }),
       equipment: 'Équipement haut de gamme loué pour la saison d\'été. Console de face Yamaha CL5, console retours CL5.',
       hosting_conditions: 'Loges creusées dans la roche, chargement/déchargement difficile à cause de la pente historique. Prévoir des runners.',
-      internal_notes: 'Lieu classé monument historique. Beaucoup de vent en fin de soirée.'
+      internal_notes: 'Lieu classé monument historique. Beaucoup de vent en fin de soirée.',
+      email: 'billetterie@vienne-tourisme.com',
+      phone: ''
     }
   ];
 
   const insertVenue = db.prepare(`
-    INSERT INTO venues (name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO venues (name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, email, phone)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `);
 
   for (const v of seedVenues) {
-    insertVenue.run(v.name, v.type, v.address, v.gps_coordinates, v.capacity, v.contact_technical, v.contact_commercial, v.website, v.social_media, v.equipment, v.hosting_conditions, v.internal_notes);
+    insertVenue.run(v.name, v.type, v.address, v.gps_coordinates, v.capacity, v.contact_technical, v.contact_commercial, v.website, v.social_media, v.equipment, v.hosting_conditions, v.internal_notes, v.email || '', v.phone || '');
   }
 }
 
@@ -349,6 +369,12 @@ if (isTableEmpty('programmations')) {
   for (const p of seedProgs) {
     insertProg.run(p.event_name, p.event_date, p.venue_id, p.group_id, p.organizer_contact, p.price_free, p.price_presale, p.price_onsite, p.status, p.notes);
   }
+}
+
+if (isTableEmpty('users')) {
+  console.log('Seeding users table...');
+  const insertUser = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)');
+  insertUser.run('admin', 'admin');
 }
 
 // ==========================================
@@ -505,12 +531,12 @@ app.get('/api/venues/:id', (req, res) => {
 // POST create venue
 app.post('/api/venues', (req, res) => {
   try {
-    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url } = req.body;
+    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url, email, phone } = req.body;
     if (!name) return res.status(400).json({ error: 'Le nom du lieu est obligatoire.' });
 
     const stmt = db.prepare(`
-      INSERT INTO venues (name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO venues (name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url, email, phone)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     const info = stmt.run(
       name,
@@ -525,7 +551,9 @@ app.post('/api/venues', (req, res) => {
       equipment || '',
       hosting_conditions || '',
       internal_notes || '',
-      photo_url || ''
+      photo_url || '',
+      email || '',
+      phone || ''
     );
     res.status(201).json({ id: info.lastInsertRowid, message: 'Lieu créé avec succès.' });
   } catch (error) {
@@ -536,12 +564,12 @@ app.post('/api/venues', (req, res) => {
 // PUT update venue
 app.put('/api/venues/:id', (req, res) => {
   try {
-    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url } = req.body;
+    const { name, type, address, gps_coordinates, capacity, contact_technical, contact_commercial, website, social_media, equipment, hosting_conditions, internal_notes, photo_url, email, phone } = req.body;
     if (!name) return res.status(400).json({ error: 'Le nom du lieu est obligatoire.' });
 
     const stmt = db.prepare(`
       UPDATE venues
-      SET name = ?, type = ?, address = ?, gps_coordinates = ?, capacity = ?, contact_technical = ?, contact_commercial = ?, website = ?, social_media = ?, equipment = ?, hosting_conditions = ?, internal_notes = ?, photo_url = ?
+      SET name = ?, type = ?, address = ?, gps_coordinates = ?, capacity = ?, contact_technical = ?, contact_commercial = ?, website = ?, social_media = ?, equipment = ?, hosting_conditions = ?, internal_notes = ?, photo_url = ?, email = ?, phone = ?
       WHERE id = ?
     `);
     const info = stmt.run(
@@ -558,6 +586,8 @@ app.put('/api/venues/:id', (req, res) => {
       hosting_conditions || '',
       internal_notes || '',
       photo_url || '',
+      email || '',
+      phone || '',
       req.params.id
     );
 
@@ -691,6 +721,102 @@ app.delete('/api/programmations/:id', (req, res) => {
     const info = stmt.run(req.params.id);
     if (info.changes === 0) return res.status(404).json({ error: 'Programmation non trouvée.' });
     res.json({ message: 'Programmation supprimée avec succès.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+
+// --- USERS & AUTH ROUTES ---
+
+// Login route
+app.post('/api/login', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Nom d\'utilisateur et mot de passe requis.' });
+    }
+    const stmt = db.prepare('SELECT * FROM users WHERE username = ? AND password = ?');
+    const user = stmt.get(username, password);
+    if (!user) {
+      return res.status(401).json({ error: 'Nom d\'utilisateur ou mot de passe incorrect.' });
+    }
+    res.json({ success: true, user: { id: user.id, username: user.username } });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET all users (without sending passwords)
+app.get('/api/users', (req, res) => {
+  try {
+    const stmt = db.prepare('SELECT id, username FROM users ORDER BY username ASC');
+    const rows = stmt.all();
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST create user
+app.post('/api/users', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      return res.status(400).json({ error: 'Le nom d\'utilisateur et le mot de passe sont obligatoires.' });
+    }
+    const stmt = db.prepare('INSERT INTO users (username, password) VALUES (?, ?)');
+    const info = stmt.run(username, password);
+    res.status(201).json({ id: info.lastInsertRowid, message: 'Utilisateur créé avec succès.' });
+  } catch (error) {
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà.' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT update user
+app.put('/api/users/:id', (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username) {
+      return res.status(400).json({ error: 'Le nom d\'utilisateur est obligatoire.' });
+    }
+    
+    let info;
+    if (password) {
+      const stmt = db.prepare('UPDATE users SET username = ?, password = ? WHERE id = ?');
+      info = stmt.run(username, password, req.params.id);
+    } else {
+      const stmt = db.prepare('UPDATE users SET username = ? WHERE id = ?');
+      info = stmt.run(username, req.params.id);
+    }
+    
+    if (info.changes === 0) return res.status(404).json({ error: 'Utilisateur non trouvé.' });
+    res.json({ message: 'Utilisateur mis à jour avec succès.' });
+  } catch (error) {
+    if (error.message.includes('UNIQUE constraint failed')) {
+      return res.status(400).json({ error: 'Ce nom d\'utilisateur existe déjà.' });
+    }
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE user
+app.delete('/api/users/:id', (req, res) => {
+  try {
+    // Count users to prevent deleting the last one
+    const countQuery = db.prepare('SELECT COUNT(*) as count FROM users');
+    const userCount = countQuery.get().count;
+    if (userCount <= 1) {
+      return res.status(400).json({ error: 'Impossible de supprimer le dernier utilisateur restant.' });
+    }
+
+    const stmt = db.prepare('DELETE FROM users WHERE id = ?');
+    const info = stmt.run(req.params.id);
+    if (info.changes === 0) return res.status(404).json({ error: 'Utilisateur non trouvé.' });
+    res.json({ message: 'Utilisateur supprimé avec succès.' });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

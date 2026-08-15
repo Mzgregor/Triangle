@@ -39,6 +39,8 @@
       <button class="nav-btn" data-target="groups">Groupes/Artistes</button>
       <button class="nav-btn" data-target="venues">Lieux</button>
       <button class="nav-btn" data-target="calendar">Programmation</button>
+      <button class="nav-btn" data-target="settings">Paramètres</button>
+      <button class="nav-btn logout-btn-header" id="logout-btn" style="border: 1px solid rgba(198, 40, 40, 0.4); color: #e57373;">Déconnexion</button>
     </nav>
   </header>
 
@@ -85,7 +87,6 @@
     <section id="view-menu" class="view hidden">
       <div class="container py-5">
         <h2 class="section-title">LE TRI<span class="title-delta">&#9650;</span>NGLE</h2>
-        <p class="section-subtitle">Pilotez vos groupes de musique, gérez vos salles et organisez vos événements.</p>
         
         <div class="menu-grid">
           <!-- Card Groupes -->
@@ -108,11 +109,6 @@
               </div>
             </div>
             <h3>Groupes & Artistes</h3>
-            <p>Gérez les fiches des groupes, leurs styles musicaux, les contacts et suivez leurs statistiques.</p>
-            <div class="menu-card-footer">
-              <span>Voir la liste</span>
-              <span class="arrow">→</span>
-            </div>
           </div>
 
           <!-- Card Lieux -->
@@ -134,11 +130,6 @@
               </div>
             </div>
             <h3>Lieux & Salles</h3>
-            <p>Répertoriez vos bars, salles de concert et festivals avec leurs équipements et contacts.</p>
-            <div class="menu-card-footer">
-              <span>Voir la liste</span>
-              <span class="arrow">→</span>
-            </div>
           </div>
 
           <!-- Card Programmation -->
@@ -164,11 +155,6 @@
               </div>
             </div>
             <h3>Programmation</h3>
-            <p>Planifiez vos concerts sur un agenda dynamique. Suivez les tarifs et statuts de confirmation.</p>
-            <div class="menu-card-footer">
-              <span>Ouvrir l'agenda</span>
-              <span class="arrow">→</span>
-            </div>
           </div>
         </div>
       </div>
@@ -438,6 +424,17 @@
 
               <div class="form-row">
                 <div class="form-group">
+                  <label for="venue-email" class="form-label">Adresse e-mail</label>
+                  <input type="email" id="venue-email" placeholder="Ex: contact@salle.com">
+                </div>
+                <div class="form-group">
+                  <label for="venue-phone" class="form-label">Téléphone</label>
+                  <input type="text" id="venue-phone" placeholder="Ex: 01 44 55 66 77">
+                </div>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
                   <label for="venue-contact-tech" class="form-label">Contact technique</label>
                   <input type="text" id="venue-contact-tech" placeholder="Nom, email, tél...">
                 </div>
@@ -621,6 +618,68 @@
       </div>
     </section>
 
+    <!-- 10. SETTINGS VIEW -->
+    <section id="view-settings" class="view hidden">
+      <div class="container py-4">
+        <div class="view-header">
+          <div>
+            <h2 class="view-title"><span class="view-title-tri">&#9650;</span> Paramètres</h2>
+            <p class="view-subtitle">Gérez les comptes utilisateurs de l'application.</p>
+          </div>
+          <button class="action-btn primary" id="add-user-btn">
+            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            Ajouter un Utilisateur
+          </button>
+        </div>
+
+        <div class="settings-content-layout">
+          <!-- Form Section for Create/Edit User (Hidden by default) -->
+          <div id="user-form-container" class="hidden settings-form-card" style="margin-bottom: 30px; background: var(--bg-card); border: 1px solid var(--border-color); padding: 25px; border-radius: 8px;">
+            <h3 id="user-form-title" class="sub-section-title" style="font-family: var(--font-sub); font-size: 1.2rem; margin-bottom: 20px; color: var(--accent-orange);">Nouvel Utilisateur</h3>
+            <form id="user-settings-form">
+              <input type="hidden" id="user-id">
+              
+              <div class="form-row">
+                <div class="form-group" style="flex: 1; min-width: 250px;">
+                  <label for="user-username" class="form-label">Nom d'utilisateur</label>
+                  <input type="text" id="user-username" placeholder="Ex: admin2" required style="width: 100%; padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; color: #fff;">
+                </div>
+                
+                <div class="form-group" style="flex: 1; min-width: 250px;">
+                  <label for="user-password" class="form-label" id="user-password-label">Mot de passe</label>
+                  <input type="password" id="user-password" placeholder="••••••••" style="width: 100%; padding: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border-color); border-radius: 6px; color: #fff;">
+                  <small class="form-helper" id="user-password-helper" style="color: var(--text-secondary); font-size: 0.8rem; display: block; margin-top: 5px;"></small>
+                </div>
+              </div>
+              
+              <div class="form-actions mt-4" style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button type="button" class="action-btn secondary" id="cancel-user-btn">Annuler</button>
+                <button type="submit" class="action-btn primary" id="submit-user-btn">Enregistrer</button>
+              </div>
+            </form>
+          </div>
+
+          <!-- Users List Section -->
+          <div class="settings-table-card" style="background: var(--bg-card); border: 1px solid var(--border-color); padding: 25px; border-radius: 8px;">
+            <h3 class="sub-section-title" style="font-family: var(--font-sub); font-size: 1.2rem; margin-bottom: 20px;">Comptes Utilisateurs</h3>
+            <div class="table-responsive">
+              <table class="custom-table" style="width: 100%; border-collapse: collapse;">
+                <thead>
+                  <tr style="border-bottom: 2px solid var(--border-color); text-align: left;">
+                    <th style="padding: 12px; color: var(--text-secondary);">Nom d'utilisateur</th>
+                    <th style="padding: 12px; color: var(--text-secondary); text-align: right;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="users-table-body">
+                  <!-- Dynamically populated -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
   </main>
 
   <!-- EVENT DETAILS MODAL (Pop-up from calendar click) -->
@@ -651,6 +710,42 @@
           <button id="confirm-delete-cancel-btn" class="action-btn secondary" style="flex: 1; padding: 10px 0;">Annuler</button>
           <button id="confirm-delete-btn" class="action-btn danger" style="flex: 1; padding: 10px 0; background-color: rgba(198, 40, 40, 0.8);">Supprimer</button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOGIN MODAL -->
+  <div id="login-modal" class="modal-overlay hidden">
+    <div class="modal-content" style="max-width: 420px; border: 1px solid var(--accent-orange); box-shadow: 0 0 30px rgba(255, 87, 34, 0.25);">
+      <button class="modal-close-btn" id="login-close-btn">&times;</button>
+      <div class="modal-body" style="padding: 30px 40px;">
+        <div class="header-brand" style="margin-bottom: 30px; transform: scale(1.1); pointer-events: none; align-items: center; display: flex; flex-direction: column;">
+          <div class="hb-le" style="font-size: 0.5rem; letter-spacing: 0.5em; padding-right: 0.5em;">LE</div>
+          <div class="hb-word" style="font-size: 1.6rem; font-weight: 800; letter-spacing: 0.1em; color: var(--text-primary);">
+            <span class="hb-letters">TR</span><span class="hb-i-wrap"><span class="hb-flame-mini" style="top: -12px; width: 6px; height: 10px;"></span><span class="hb-i">I</span></span><span class="hb-delta">&#9650;</span><span class="hb-letters">NGLE</span>
+          </div>
+        </div>
+        
+        <h3 style="font-family: var(--font-sub); font-size: 1.4rem; margin-bottom: 20px; color: var(--text-primary); text-align: center;">CONNEXION</h3>
+        
+        <form id="login-form">
+          <div class="form-group" style="margin-bottom: 20px;">
+            <label for="login-username" class="form-label">Nom d'utilisateur</label>
+            <input type="text" id="login-username" class="form-control-custom" placeholder="Ex: admin" required style="width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; font-family: var(--font-body);">
+          </div>
+          
+          <div class="form-group" style="margin-bottom: 25px;">
+            <label for="login-password" class="form-label">Mot de passe</label>
+            <input type="password" id="login-password" class="form-control-custom" placeholder="••••••••" required style="width: 100%; padding: 12px; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 6px; color: #fff; font-family: var(--font-body);">
+          </div>
+
+          <div id="login-error" class="hidden" style="color: var(--status-annule-text); margin-bottom: 20px; font-size: 0.9rem; text-align: center; background: rgba(198, 40, 40, 0.1); border: 1px solid rgba(198, 40, 40, 0.3); padding: 10px; border-radius: 6px;"></div>
+          
+          <button type="submit" class="glow-btn" style="width: 100%; padding: 12px; height: auto;">
+            <span>ENTRER</span>
+            <div class="btn-glow-effect"></div>
+          </button>
+        </form>
       </div>
     </div>
   </div>

@@ -1733,3 +1733,356 @@ textarea:focus {
   from { transform: translateY(20px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
 }
+
+/* ==========================================================================
+   VENUE PROFILE REDESIGN STYLES
+   ========================================================================== */
+
+#venue-profile-container {
+  display: block; /* Override profile-layout grid */
+}
+
+.venue-profile-header {
+  background-color: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 30px;
+  box-shadow: var(--shadow-premium);
+}
+
+.venue-banner-container {
+  width: 100%;
+  height: 350px;
+  background-color: var(--bg-secondary);
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.venue-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.venue-banner-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 15px;
+  color: var(--text-secondary);
+}
+
+.venue-placeholder-svg {
+  filter: drop-shadow(0 0 10px rgba(255, 87, 34, 0.2));
+}
+
+.placeholder-text {
+  font-family: var(--font-sub);
+  font-size: 1.1rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+}
+
+.venue-info-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 25px 30px;
+  flex-wrap: wrap;
+  gap: 20px;
+}
+
+.venue-title-section {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  flex-wrap: wrap;
+}
+
+.venue-name-title {
+  font-family: var(--font-title);
+  font-size: 2.2rem;
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin-right: 5px;
+}
+
+.venue-contacts-inline {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: 10px;
+}
+
+/* Contact action buttons */
+.contact-action-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-smooth);
+  position: relative;
+  background-color: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+}
+
+.contact-action-btn.mail-active {
+  border-color: rgba(255, 87, 34, 0.4);
+  color: var(--accent-orange);
+  background-color: rgba(255, 87, 34, 0.03);
+  box-shadow: 0 0 10px rgba(255, 87, 34, 0.05);
+}
+
+.contact-action-btn.mail-active:hover {
+  background-color: var(--accent-orange);
+  color: var(--text-primary);
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 15px rgba(255, 87, 34, 0.3);
+  transform: translateY(-2px);
+}
+
+.contact-action-btn.phone-active {
+  border-color: rgba(255, 179, 0, 0.4);
+  color: var(--accent-gold);
+  background-color: rgba(255, 179, 0, 0.03);
+  box-shadow: 0 0 10px rgba(255, 179, 0, 0.05);
+}
+
+.contact-action-btn.phone-active:hover {
+  background-color: var(--accent-gold);
+  color: #000;
+  border-color: var(--accent-gold);
+  box-shadow: 0 0 15px rgba(255, 179, 0, 0.3);
+  transform: translateY(-2px);
+}
+
+.contact-action-btn.disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Tooltip on hover */
+.contact-tooltip {
+  position: absolute;
+  bottom: 125%;
+  left: 50%;
+  transform: translateX(-50%) translateY(5px);
+  background-color: #121217;
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: var(--transition-smooth);
+  box-shadow: var(--shadow-premium);
+  font-weight: 500;
+  z-index: 10;
+}
+
+.contact-action-btn:hover .contact-tooltip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.venue-action-buttons {
+  display: flex;
+  gap: 12px;
+}
+
+/* Grid layout for detailed venue page body */
+.venue-profile-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 30px;
+  align-items: start;
+}
+
+@media (max-width: 950px) {
+  .venue-profile-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .venue-banner-container {
+    height: 250px;
+  }
+  
+  .venue-name-title {
+    font-size: 1.8rem;
+  }
+}
+
+/* ==========================================================================
+   SETTINGS & AUTH STYLES
+   ========================================================================== */
+
+.settings-content-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  margin-top: 24px;
+}
+
+.settings-form-card, .settings-table-card {
+  box-shadow: var(--shadow-premium);
+  transition: var(--transition-smooth);
+}
+
+.settings-form-card:hover, .settings-table-card:hover {
+  border-color: var(--accent-orange-glow) !important;
+}
+
+.custom-table {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.custom-table th {
+  font-family: var(--font-sub);
+  font-size: 0.85rem;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.custom-table td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border-color);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+}
+
+.custom-table tr:hover td {
+  background: rgba(255, 255, 255, 0.01);
+}
+
+.form-control-custom:focus {
+  outline: none;
+  border-color: var(--accent-orange) !important;
+  box-shadow: 0 0 10px rgba(255, 87, 34, 0.2);
+}
+
+.logout-btn-header {
+  transition: var(--transition-smooth);
+}
+
+.logout-btn-header:hover {
+  background-color: rgba(198, 40, 40, 0.2) !important;
+  border-color: rgb(198, 40, 40) !important;
+  color: #fff !important;
+}
+
+/* ==========================================================================
+   VENUE DETAIL - SIMPLIFIED / EPURED LAYOUT
+   ========================================================================== */
+
+/* Single full-width column below the banner */
+.venue-single-column {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+  margin-top: 30px;
+}
+
+/* Icon pills row (GPS, website, Instagram, Facebook) */
+.venue-icon-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.venue-icon-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  text-decoration: none;
+  border: 1px solid var(--border-color);
+  color: var(--text-secondary);
+  background: rgba(255,255,255,0.03);
+  transition: var(--transition-smooth);
+  cursor: pointer;
+  max-width: 340px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.venue-icon-pill:hover {
+  border-color: var(--accent-orange);
+  color: var(--accent-orange);
+  background: rgba(255, 87, 34, 0.06);
+}
+
+.venue-icon-pill svg {
+  flex-shrink: 0;
+  color: var(--accent-orange);
+}
+
+/* Instagram pill */
+.venue-icon-pill--instagram {
+  border-color: rgba(193, 53, 132, 0.4);
+  color: #c13584;
+}
+.venue-icon-pill--instagram:hover {
+  border-color: #c13584;
+  background: rgba(193, 53, 132, 0.08);
+  color: #c13584;
+}
+.venue-icon-pill--instagram svg { color: #c13584; }
+
+/* Facebook pill */
+.venue-icon-pill--facebook {
+  border-color: rgba(24, 119, 242, 0.4);
+  color: #1877f2;
+}
+.venue-icon-pill--facebook:hover {
+  border-color: #1877f2;
+  background: rgba(24, 119, 242, 0.08);
+  color: #1877f2;
+}
+.venue-icon-pill--facebook svg { color: #1877f2; }
+
+/* Notes / Informations textarea */
+.venue-notes-textarea {
+  width: 100%;
+  min-height: 180px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-primary);
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  line-height: 1.7;
+  padding: 16px;
+  resize: vertical;
+  transition: var(--transition-smooth);
+}
+.venue-notes-textarea:focus {
+  outline: none;
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 12px rgba(255, 87, 34, 0.12);
+}
+.venue-notes-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+
+

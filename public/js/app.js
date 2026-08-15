@@ -11,7 +11,8 @@ const state = {
   calendar: {
     currentDate: new Date() // Month-view target date
   },
-  activeMap: null // Leaflet instance
+  activeMap: null, // Leaflet instance
+  user: JSON.parse(sessionStorage.getItem('triangle_user') || 'null')
 };
 
 // Mapeur de mois en français
@@ -73,6 +74,14 @@ function router() {
   } else if (hash.startsWith('#programming-form')) {
     view = 'programming-form';
     id = hash.split('/')[1] || null;
+  } else if (hash.startsWith('#settings')) {
+    view = 'settings';
+  }
+
+  // Guard access if not authenticated
+  if (!state.user && view !== 'welcome') {
+    window.location.hash = '#welcome';
+    return;
   }
 
   // Charger la vue correspondante
@@ -144,6 +153,9 @@ function showView(viewName, id = null) {
     case 'programming-form':
       setupProgrammingForm(id);
       break;
+    case 'settings':
+      loadSettingsView();
+      break;
   }
 }
 
@@ -151,12 +163,20 @@ function showView(viewName, id = null) {
 function registerGlobalEvents() {
   // Bouton Entrer
   document.getElementById('enter-btn').addEventListener('click', () => {
-    window.location.hash = '#menu';
+    if (state.user) {
+      window.location.hash = '#menu';
+    } else {
+      openLoginModal();
+    }
   });
 
   // Clic Logo Header
   document.getElementById('header-logo-btn').addEventListener('click', () => {
-    window.location.hash = '#menu';
+    if (state.user) {
+      window.location.hash = '#menu';
+    } else {
+      window.location.hash = '#welcome';
+    }
   });
 
   // Navigation Boutons Header
@@ -196,6 +216,16 @@ function registerGlobalEvents() {
   document.getElementById('group-form').addEventListener('submit', handleGroupSubmit);
   document.getElementById('venue-form').addEventListener('submit', handleVenueSubmit);
   document.getElementById('programming-form').addEventListener('submit', handleProgrammingSubmit);
+  
+  // Connection Form & Logout
+  document.getElementById('login-form').addEventListener('submit', handleLoginSubmit);
+  document.getElementById('login-close-btn').addEventListener('click', closeLoginModal);
+  document.getElementById('logout-btn').addEventListener('click', handleLogout);
+
+  // User Settings CRUD Form
+  document.getElementById('add-user-btn').addEventListener('click', openAddUserForm);
+  document.getElementById('cancel-user-btn').addEventListener('click', closeUserForm);
+  document.getElementById('user-settings-form').addEventListener('submit', handleUserFormSubmit);
 
   // Upload Photo bouton
   document.getElementById('upload-photo-btn').addEventListener('click', () => {
@@ -748,137 +778,303 @@ async function loadVenueDetails(id) {
 function renderVenueProfile(venue) {
   const container = document.getElementById('venue-profile-container');
   
+  // Set up local state for venue calendar date
+  state.venueCalendarDate = new Date();
+
   let socials = {};
   try { socials = JSON.parse(venue.social_media || '{}'); } catch(e) {}
-  
-  let socialHtml = '';
-  if (socials.facebook) socialHtml += `<a href="${socials.facebook}" target="_blank" class="social-icon-btn">FB</a>`;
-  if (socials.instagram) socialHtml += `<a href="${socials.instagram}" target="_blank" class="social-icon-btn">IG</a>`;
 
-  // Gig list inside venue
-  let gigsListHtml = `<p style="color: var(--text-secondary);">Aucun concert programmé dans ce lieu.</p>`;
-  if (venue.gigs && venue.gigs.length > 0) {
-    gigsListHtml = `<div class="profile-gigs-list">`;
-    venue.gigs.forEach(gig => {
-      const gigDate = new Date(gig.event_date);
-      const day = gigDate.getDate();
-      const month = MONTHS_FR[gigDate.getMonth()].substring(0, 4);
-      const time = String(gigDate.getHours()).padStart(2,'0') + 'h' + String(gigDate.getMinutes()).padStart(2,'0');
-      
-      gigsListHtml += `
-        <div class="profile-gig-card">
-          <div class="gig-date-box">
-            <span class="month">${month}</span>
-            <span class="day">${day}</span>
-            <span class="time">${time}</span>
-          </div>
-          <div class="gig-details-box">
-            <div class="gig-title">${gig.event_name}</div>
-            <div class="gig-link-ref">avec <a href="#group/${gig.group_id}" style="color: var(--accent-orange); text-decoration: none;">${gig.group_name}</a> (${gig.group_style})</div>
-          </div>
-          <span class="badge badge-${gig.status.toLowerCase()}">${gig.status}</span>
-        </div>
-      `;
-    });
-    gigsListHtml += `</div>`;
+  // --- Icon pills (only shown if data exists) ---
+  const iconPills = [];
+
+  if (venue.address) {
+    iconPills.push(`
+      <a class="venue-icon-pill" title="${venue.address}" href="https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venue.address)}" target="_blank">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+          <circle cx="12" cy="10" r="3"/>
+        </svg>
+        <span>${venue.address}</span>
+      </a>`);
   }
 
+  if (venue.website) {
+    iconPills.push(`
+      <a class="venue-icon-pill" href="${venue.website}" target="_blank" title="Site internet">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="2" y1="12" x2="22" y2="12"/>
+          <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <span>Site internet</span>
+      </a>`);
+  }
+
+  if (socials.instagram) {
+    iconPills.push(`
+      <a class="venue-icon-pill venue-icon-pill--instagram" href="${socials.instagram}" target="_blank" title="Instagram">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+          <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+          <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+        </svg>
+        <span>Instagram</span>
+      </a>`);
+  }
+
+  if (socials.facebook) {
+    iconPills.push(`
+      <a class="venue-icon-pill venue-icon-pill--facebook" href="${socials.facebook}" target="_blank" title="Facebook">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+        </svg>
+        <span>Facebook</span>
+      </a>`);
+  }
+
+  const iconPillsHtml = iconPills.length > 0
+    ? `<div class="venue-icon-pills">${iconPills.join('')}</div>`
+    : '';
+
+  // Notes / Informations (editable textarea)
+  const notesValue = venue.internal_notes || '';
+
   container.innerHTML = `
-    <!-- Left column -->
-    <div class="profile-card">
-      <div class="profile-photo-container">
+    <!-- Top photo banner / hero -->
+    <div class="venue-profile-header">
+      <div class="venue-banner-container">
         ${ venue.photo_url
-          ? `<img src="${venue.photo_url}" alt="${venue.name}">`
-          : `<svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="var(--accent-orange)" stroke-width="1"><path d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0" /><path d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25s-7.5-4.108-7.5-11.25a7.5 7.5 0 1115 0z" /></svg>`
+          ? `<img src="${venue.photo_url}" alt="${venue.name}" class="venue-banner-img">`
+          : `<div class="venue-banner-placeholder">
+              <svg viewBox="0 0 100 100" class="venue-placeholder-svg" width="90" height="90">
+                <circle cx="50" cy="50" r="45" stroke="var(--border-color)" stroke-dasharray="3 3" fill="none"/>
+                <path d="M50 20 C35 20 25 30 25 45 C25 60 50 80 50 80 C50 80 75 60 75 45 C75 30 65 20 50 20 Z" fill="rgba(255, 87, 34, 0.08)" stroke="var(--accent-orange)" stroke-width="2"/>
+                <circle cx="50" cy="45" r="8" fill="var(--accent-gold)"/>
+              </svg>
+              <div class="placeholder-text">Localisation</div>
+             </div>`
         }
       </div>
-      <div class="profile-info-body">
-        <div class="profile-title-row">
-          <h3 class="profile-name">${venue.name}</h3>
+      
+      <div class="venue-info-bar">
+        <div class="venue-title-section">
+          <h2 class="venue-name-title">${venue.name}</h2>
           <span class="badge" style="background: rgba(255, 179, 0, 0.1); border-color: rgba(255, 179, 0, 0.4); color: var(--accent-gold);">${venue.type}</span>
+          ${iconPillsHtml}
         </div>
         
-        <div class="profile-facts">
-          <div class="fact-item">
-            <span>Capacité</span>
-            <span><b>${venue.capacity ? venue.capacity + ' pers.' : 'N/C'}</b></span>
-          </div>
-          <div class="fact-item">
-            <span>Coordonnées GPS</span>
-            <span>${venue.gps_coordinates || 'N/C'}</span>
-          </div>
-          <div class="fact-item" style="border:none;">
-            <span>Site</span>
-            <span>${venue.website ? `<a href="${venue.website}" target="_blank" style="color: var(--accent-orange);">Visiter</a>` : 'Aucun'}</span>
-          </div>
-        </div>
-
-        <div class="profile-actions">
+        <div class="venue-action-buttons">
+          <button class="action-btn primary btn-sm" id="venue-add-event-btn">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 4v16m8-8H4"/></svg>
+            Ajouter un événement
+          </button>
           <button class="action-btn secondary btn-sm" onclick="window.location.hash='#venue-form/${venue.id}'">Modifier</button>
           <button class="action-btn danger btn-sm" onclick="deleteVenueRecord(${venue.id})">Supprimer</button>
         </div>
       </div>
     </div>
-
-    <!-- Right column -->
-    <div class="profile-content">
+    
+    <!-- Single column: Calendar then Notes -->
+    <div class="venue-single-column">
+      <!-- Embedded Venue Calendar -->
       <div class="content-block">
-        <h4 class="block-title">Adresse & Géolocalisation</h4>
-        <p class="block-text" style="font-weight: 500; margin-bottom: 10px;">${venue.address || 'Pas d\'adresse spécifiée.'}</p>
-        
-        <div class="map-wrapper">
-          <div id="map-container"></div>
-        </div>
-      </div>
-
-      <div class="content-block">
-        <h4 class="block-title">Fiche Technique & Matériel disponible</h4>
-        <p class="block-text">${venue.equipment || 'Aucun équipement répertorié.'}</p>
-      </div>
-
-      <div class="content-block">
-        <h4 class="block-title">Conditions d'accueil</h4>
-        <p class="block-text">${venue.hosting_conditions || 'Aucune condition d\'accueil spécifique renseignée.'}</p>
-      </div>
-
-      <div class="content-block">
-        <h4 class="block-title">Notes Internes (Confidentiel)</h4>
-        <p class="block-text" style="color: #ffcc80; background: rgba(255,143,0,0.03); border: 1px dashed rgba(255,143,0,0.2); padding: 15px; border-radius: 6px;">
-          ${venue.internal_notes || 'Aucune note interne.'}
-        </p>
-      </div>
-
-      <div class="content-block">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <h4 class="block-title" style="margin-bottom:0; border:none; padding:0;">Contacts Utiles</h4>
-        </div>
-        <div class="form-row">
-          <div>
-            <span style="font-size:0.8rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Technique</span>
-            <p style="font-size:0.95rem; margin-top:5px; font-weight:500;">${venue.contact_technical || 'Non renseigné'}</p>
+        <h4 class="block-title" style="margin-bottom: 20px;">Agenda du Mois</h4>
+        <div class="calendar-wrapper card">
+          <div class="calendar-toolbar">
+            <div class="toolbar-nav">
+              <button class="icon-btn" id="venue-cal-prev-btn">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7"/></svg>
+              </button>
+              <h3 class="calendar-month-year" id="venue-cal-month-title"></h3>
+              <button class="icon-btn" id="venue-cal-next-btn">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
           </div>
-          <div>
-            <span style="font-size:0.8rem; color:var(--text-secondary); text-transform:uppercase; font-weight:700;">Commercial & Booking</span>
-            <p style="font-size:0.95rem; margin-top:5px; font-weight:500;">${venue.contact_commercial || 'Non renseigné'}</p>
+          <div class="calendar-days-header">
+            <div>Lundi</div>
+            <div>Mardi</div>
+            <div>Mercredi</div>
+            <div>Jeudi</div>
+            <div>Vendredi</div>
+            <div>Samedi</div>
+            <div>Dimanche</div>
+          </div>
+          <div class="calendar-grid" id="venue-calendar-grid-days">
+            <!-- Drawn by JS -->
           </div>
         </div>
-        
-        ${socialHtml ? `
-          <h4 class="block-title mt-4" style="margin-bottom:10px;">Réseaux Sociaux</h4>
-          <div class="social-badges">${socialHtml}</div>
-        ` : ''}
       </div>
 
-      <div class="content-block">
-        <h4 class="block-title">Historique de Programmation</h4>
-        ${gigsListHtml}
+      <!-- Notes / Informations -->
+      <div class="content-block mt-4" id="venue-notes-block">
+        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+          <h4 class="block-title" style="margin:0;">INFORMATIONS</h4>
+          <button class="action-btn secondary btn-sm" id="venue-notes-save-btn" style="display:none;">
+            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Enregistrer
+          </button>
+        </div>
+        <textarea
+          id="venue-notes-textarea"
+          class="venue-notes-textarea"
+          placeholder="Notez ici toutes les informations utiles sur ce lieu : acoustique, équipements, contacts, conditions d'accueil, notes de négociation..."
+          rows="8"
+        >${notesValue}</textarea>
       </div>
     </div>
   `;
 
-  // Init leaflet Map
-  initVenueMap(venue.gps_coordinates, venue.name);
+  // Draw embedded calendar
+  renderVenueCalendar(venue);
+
+  // Set up event listeners for venue calendar navigation
+  document.getElementById('venue-cal-prev-btn').addEventListener('click', () => {
+    state.venueCalendarDate.setMonth(state.venueCalendarDate.getMonth() - 1);
+    renderVenueCalendar(venue);
+  });
+  document.getElementById('venue-cal-next-btn').addEventListener('click', () => {
+    state.venueCalendarDate.setMonth(state.venueCalendarDate.getMonth() + 1);
+    renderVenueCalendar(venue);
+  });
+
+  // "Ajouter un événement" button: pre-selects this venue
+  document.getElementById('venue-add-event-btn').addEventListener('click', () => {
+    state.preselectedVenueId = venue.id;
+    window.location.hash = '#programming-form';
+  });
+
+  // Notes textarea: show save button on change
+  const notesTextarea = document.getElementById('venue-notes-textarea');
+  const notesSaveBtn = document.getElementById('venue-notes-save-btn');
+  notesTextarea.addEventListener('input', () => {
+    notesSaveBtn.style.display = '';
+  });
+  notesSaveBtn.addEventListener('click', async () => {
+    try {
+      // Build a minimal update payload preserving all existing fields
+      const res = await fetch(`/api/venues/${venue.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: venue.name,
+          type: venue.type,
+          address: venue.address || '',
+          gps_coordinates: venue.gps_coordinates || '',
+          capacity: venue.capacity || 0,
+          contact_technical: venue.contact_technical || '',
+          contact_commercial: venue.contact_commercial || '',
+          website: venue.website || '',
+          social_media: venue.social_media || '{}',
+          equipment: venue.equipment || '',
+          hosting_conditions: venue.hosting_conditions || '',
+          internal_notes: notesTextarea.value,
+          photo_url: venue.photo_url || '',
+          email: venue.email || '',
+          phone: venue.phone || ''
+        })
+      });
+      if (res.ok) {
+        venue.internal_notes = notesTextarea.value;
+        notesSaveBtn.style.display = 'none';
+        showToast('Informations enregistrées.');
+      } else {
+        throw new Error();
+      }
+    } catch (e) {
+      showToast('Erreur lors de la sauvegarde des informations.', 'error');
+    }
+  });
 }
+
+// Function to draw the venue calendar month view
+function renderVenueCalendar(venue) {
+  const currentDate = state.venueCalendarDate || new Date();
+  const year = currentDate.getFullYear();
+  const month = currentDate.getMonth();
+
+  // Update title
+  const monthTitle = document.getElementById('venue-cal-month-title');
+  if (monthTitle) {
+    monthTitle.innerText = `${MONTHS_FR[month]} ${year}`;
+  }
+
+  const grid = document.getElementById('venue-calendar-grid-days');
+  if (!grid) return;
+  grid.innerHTML = '';
+
+  // Get index day of first day in month (adjusted for Monday as first day)
+  let firstDayOfMonth = new Date(year, month, 1).getDay();
+  firstDayOfMonth = firstDayOfMonth === 0 ? 6 : firstDayOfMonth - 1;
+
+  // Days count of current month
+  const totalDaysInMonth = new Date(year, month + 1, 0).getDate();
+
+  // Days count of previous month
+  const totalDaysInPrevMonth = new Date(year, month, 0).getDate();
+
+  // 1. Draw previous month padding days
+  for (let i = firstDayOfMonth - 1; i >= 0; i--) {
+    const dayVal = totalDaysInPrevMonth - i;
+    const cell = document.createElement('div');
+    cell.className = 'calendar-day-cell other-month';
+    cell.innerHTML = `<span class="day-number">${dayVal}</span>`;
+    grid.appendChild(cell);
+  }
+
+  // 2. Draw current month days
+  const today = new Date();
+  for (let d = 1; d <= totalDaysInMonth; d++) {
+    const cell = document.createElement('div');
+    cell.className = 'calendar-day-cell';
+    
+    // Check if cell represents today
+    if (d === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+      cell.classList.add('today');
+    }
+
+    cell.innerHTML = `<span class="day-number">${d}</span>`;
+
+    // Filter events for this day
+    const dayStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    const dayEvents = (venue.gigs || []).filter(event => {
+      return event.event_date.startsWith(dayStr);
+    });
+
+    // Sort events by time
+    dayEvents.sort((a, b) => a.event_date.localeCompare(b.event_date));
+
+    // Append events to cell
+    dayEvents.forEach(event => {
+      const timeStr = event.event_date.split('T')[1].substring(0, 5).replace(':', 'h');
+      const badge = document.createElement('div');
+      badge.className = `calendar-event-badge event-badge-${event.status.toLowerCase()}`;
+      badge.innerHTML = `<strong>${timeStr}</strong> ${event.group_name}`;
+      badge.title = `${event.event_name} - ${event.group_style}`;
+      badge.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // Inject venue info so modal behaves correctly
+        event.venue_name = venue.name;
+        event.venue_type = venue.type;
+        showEventDetails(event);
+      });
+      cell.appendChild(badge);
+    });
+
+    grid.appendChild(cell);
+  }
+
+  // 3. Draw next month padding days
+  const gridCellsCount = firstDayOfMonth + totalDaysInMonth;
+  const nextMonthPadding = 42 - gridCellsCount;
+  for (let n = 1; n <= nextMonthPadding; n++) {
+    const cell = document.createElement('div');
+    cell.className = 'calendar-day-cell other-month';
+    cell.innerHTML = `<span class="day-number">${n}</span>`;
+    grid.appendChild(cell);
+  }
+}
+
 
 // Map Leaflet loader
 function initVenueMap(coordinatesStr, venueName) {
@@ -968,6 +1164,8 @@ async function setupVenueForm(id = null) {
       document.getElementById('venue-gps').value = v.gps_coordinates;
       document.getElementById('venue-capacity').value = v.capacity;
       document.getElementById('venue-website').value = v.website;
+      document.getElementById('venue-email').value = v.email || '';
+      document.getElementById('venue-phone').value = v.phone || '';
       document.getElementById('venue-contact-tech').value = v.contact_technical;
       document.getElementById('venue-contact-comm').value = v.contact_commercial;
       document.getElementById('venue-equipment').value = v.equipment;
@@ -1002,6 +1200,8 @@ async function handleVenueSubmit(e) {
   const gps_coordinates = document.getElementById('venue-gps').value;
   const capacity = document.getElementById('venue-capacity').value;
   const website = document.getElementById('venue-website').value;
+  const email = document.getElementById('venue-email').value;
+  const phone = document.getElementById('venue-phone').value;
   const contact_technical = document.getElementById('venue-contact-tech').value;
   const contact_commercial = document.getElementById('venue-contact-comm').value;
   const equipment = document.getElementById('venue-equipment').value;
@@ -1016,7 +1216,7 @@ async function handleVenueSubmit(e) {
   };
 
   const payload = {
-    name, type, address, gps_coordinates, capacity, website, contact_technical, contact_commercial,
+    name, type, address, gps_coordinates, capacity, website, email, phone, contact_technical, contact_commercial,
     equipment, hosting_conditions, internal_notes, photo_url,
     social_media: JSON.stringify(socials)
   };
@@ -1285,6 +1485,14 @@ async function setupProgrammingForm(id = null) {
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = `${tomorrow.getFullYear()}-${String(tomorrow.getMonth()+1).padStart(2,'0')}-${String(tomorrow.getDate()).padStart(2,'0')}T20:00`;
     document.getElementById('prog-date').value = tomorrowStr;
+
+    // Pre-select venue if coming from venue detail page
+    if (state.preselectedVenueId) {
+      const venueSelect = document.getElementById('prog-venue-id');
+      venueSelect.value = state.preselectedVenueId;
+      venueSelect.disabled = true; // Lock it since user came from that venue's page
+      state.preselectedVenueId = null; // Reset after use
+    }
   }
 }
 
@@ -1370,4 +1578,278 @@ async function handleProgrammingSubmit(e) {
   } catch(e) {
     showToast('Erreur d\'enregistrement de la programmation.', 'error');
   }
+}
+
+// --- LOGIQUE AUTHENTICATION ---
+
+function openLoginModal() {
+  document.getElementById('login-modal').classList.remove('hidden');
+  document.getElementById('login-error').classList.add('hidden');
+  document.getElementById('login-username').value = '';
+  document.getElementById('login-password').value = '';
+  document.getElementById('login-username').focus();
+}
+
+function closeLoginModal() {
+  document.getElementById('login-modal').classList.add('hidden');
+}
+
+async function handleLoginSubmit(e) {
+  e.preventDefault();
+  const usernameInput = document.getElementById('login-username').value.trim();
+  const passwordInput = document.getElementById('login-password').value;
+  const loginError = document.getElementById('login-error');
+
+  try {
+    const res = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: usernameInput, password: passwordInput })
+    });
+    
+    const data = await res.json();
+    if (res.ok && data.success) {
+      state.user = data.user;
+      sessionStorage.setItem('triangle_user', JSON.stringify(data.user));
+      closeLoginModal();
+      showToast('Connexion réussie !');
+      window.location.hash = '#menu';
+    } else {
+      loginError.textContent = data.error || 'Erreur d\'identification.';
+      loginError.classList.remove('hidden');
+    }
+  } catch (error) {
+    loginError.textContent = 'Serveur inaccessible.';
+    loginError.classList.remove('hidden');
+  }
+}
+
+function handleLogout() {
+  state.user = null;
+  sessionStorage.removeItem('triangle_user');
+  showToast('Déconnexion réussie.');
+  window.location.hash = '#welcome';
+}
+
+// --- LOGIQUE PARAMÈTRES (GÉRER LES UTILISATEURS) ---
+
+let allUsers = [];
+
+async function loadSettingsView() {
+  // Hide form container
+  document.getElementById('user-form-container').classList.add('hidden');
+  await fetchUsers();
+}
+
+async function fetchUsers() {
+  try {
+    const res = await fetch('/api/users');
+    if (!res.ok) throw new Error('Impossible de récupérer les utilisateurs.');
+    allUsers = await res.json();
+    renderUsersTable();
+  } catch (error) {
+    showToast('Erreur lors du chargement des utilisateurs.', 'error');
+  }
+}
+
+function renderUsersTable() {
+  const tbody = document.getElementById('users-table-body');
+  tbody.innerHTML = '';
+  
+  if (allUsers.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="2" class="text-center" style="color: var(--text-secondary); padding: 20px;">Aucun utilisateur trouvé.</td></tr>`;
+    return;
+  }
+  
+  allUsers.forEach(user => {
+    const tr = document.createElement('tr');
+    tr.style.borderBottom = '1px solid var(--border-color)';
+    
+    // Actions HTML
+    const isCurrentUser = state.user && state.user.id === user.id;
+    const canDelete = allUsers.length > 1 && !isCurrentUser;
+    
+    const actionButtonsHTML = `
+      <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <button class="action-btn secondary btn-edit-user" data-id="${user.id}" style="padding: 6px 12px; font-size: 0.85rem;">Modifier</button>
+        ${canDelete ? `<button class="action-btn danger btn-delete-user" data-id="${user.id}" style="padding: 6px 12px; font-size: 0.85rem; background-color: rgba(198, 40, 40, 0.2); border: 1px solid rgba(198, 40, 40, 0.4); color: #e57373;">Supprimer</button>` : ''}
+      </div>
+    `;
+    
+    tr.innerHTML = `
+      <td style="padding: 12px;">
+        <span style="font-weight: 500;">${escapeHTML(user.username)}</span>
+        ${isCurrentUser ? ' <span style="font-size: 0.75rem; color: var(--accent-orange); font-style: italic;">(Vous)</span>' : ''}
+      </td>
+      <td style="padding: 12px; text-align: right;">
+        ${actionButtonsHTML}
+      </td>
+    `;
+    
+    tbody.appendChild(tr);
+  });
+  
+  // Attach listeners
+  tbody.querySelectorAll('.btn-edit-user').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id);
+      openEditUserForm(id);
+    });
+  });
+  
+  tbody.querySelectorAll('.btn-delete-user').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = parseInt(btn.dataset.id);
+      confirmDeleteUser(id);
+    });
+  });
+}
+
+function openAddUserForm() {
+  const container = document.getElementById('user-form-container');
+  container.classList.remove('hidden');
+  
+  document.getElementById('user-form-title').textContent = 'Nouvel Utilisateur';
+  document.getElementById('user-id').value = '';
+  document.getElementById('user-username').value = '';
+  document.getElementById('user-password').value = '';
+  document.getElementById('user-password').required = true;
+  document.getElementById('user-password-label').textContent = 'Mot de passe';
+  document.getElementById('user-password-helper').textContent = '';
+  
+  document.getElementById('user-username').focus();
+  container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function openEditUserForm(id) {
+  const user = allUsers.find(u => u.id === id);
+  if (!user) return;
+  
+  const container = document.getElementById('user-form-container');
+  container.classList.remove('hidden');
+  
+  document.getElementById('user-form-title').textContent = `Modifier l'utilisateur : ${user.username}`;
+  document.getElementById('user-id').value = user.id;
+  document.getElementById('user-username').value = user.username;
+  document.getElementById('user-password').value = '';
+  document.getElementById('user-password').required = false;
+  document.getElementById('user-password-label').textContent = 'Nouveau mot de passe';
+  document.getElementById('user-password-helper').textContent = 'Laissez vide pour conserver le mot de passe actuel.';
+  
+  document.getElementById('user-username').focus();
+  container.scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeUserForm() {
+  document.getElementById('user-form-container').classList.add('hidden');
+}
+
+async function handleUserFormSubmit(e) {
+  e.preventDefault();
+  const id = document.getElementById('user-id').value;
+  const username = document.getElementById('user-username').value.trim();
+  const password = document.getElementById('user-password').value;
+  
+  const payload = { username };
+  if (password) {
+    payload.password = password;
+  }
+  
+  try {
+    let res;
+    if (id) {
+      // Edit
+      res = await fetch(`/api/users/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } else {
+      // Create
+      if (!password) {
+        showToast('Le mot de passe est requis pour un nouvel utilisateur.', 'error');
+        return;
+      }
+      res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    }
+    
+    const data = await res.json();
+    if (res.ok) {
+      showToast(id ? 'Utilisateur mis à jour !' : 'Utilisateur créé avec succès.');
+      // If the current user updated their own username, update frontend state
+      if (id && state.user && state.user.id === parseInt(id)) {
+        state.user.username = username;
+        sessionStorage.setItem('triangle_user', JSON.stringify(state.user));
+      }
+      closeUserForm();
+      await fetchUsers();
+    } else {
+      showToast(data.error || 'Erreur lors de l\'enregistrement.', 'error');
+    }
+  } catch (error) {
+    showToast('Erreur serveur lors de l\'enregistrement.', 'error');
+  }
+}
+
+async function confirmDeleteUser(id) {
+  const user = allUsers.find(u => u.id === id);
+  if (!user) return;
+  
+  const modal = document.getElementById('confirm-delete-modal');
+  const messageEl = document.getElementById('confirm-delete-message');
+  const cancelBtn = document.getElementById('confirm-delete-cancel-btn');
+  const confirmBtn = document.getElementById('confirm-delete-btn');
+  
+  messageEl.textContent = `Voulez-vous vraiment supprimer l'utilisateur "${user.username}" ?`;
+  modal.classList.remove('hidden');
+  
+  const cleanup = () => {
+    modal.classList.add('hidden');
+    confirmBtn.removeEventListener('click', onConfirm);
+    cancelBtn.removeEventListener('click', onCancel);
+  };
+  
+  const onConfirm = async () => {
+    try {
+      const res = await fetch(`/api/users/${id}`, {
+        method: 'DELETE'
+      });
+      const data = await res.json();
+      if (res.ok) {
+        showToast('Utilisateur supprimé.');
+        cleanup();
+        await fetchUsers();
+      } else {
+        showToast(data.error || 'Erreur lors de la suppression.', 'error');
+        cleanup();
+      }
+    } catch (e) {
+      showToast('Erreur serveur lors de la suppression.', 'error');
+      cleanup();
+    }
+  };
+  
+  const onCancel = () => {
+    cleanup();
+  };
+  
+  confirmBtn.addEventListener('click', onConfirm);
+  cancelBtn.addEventListener('click', onCancel);
+}
+
+// Simple HTML escape helper
+function escapeHTML(str) {
+  return str.replace(/[&<>'"]/g, 
+    tag => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      "'": '&#39;',
+      '"': '&quot;'
+    }[tag] || tag)
+  );
 }
