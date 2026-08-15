@@ -1,8 +1,9 @@
-app = 'le-triangle'
+# fly.toml app configuration file for le-triangle-mellow-sunrise-9260
+
+app = 'le-triangle-mellow-sunrise-9260'
 primary_region = 'cdg'
 
 [build]
-  dockerfile = 'Dockerfile'
 
 [env]
   PORT = '3000'
@@ -11,9 +12,10 @@ primary_region = 'cdg'
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = false
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 1
+  processes = ['app']
 
 [[mounts]]
   source = 'triangle_data'
@@ -21,6 +23,6 @@ primary_region = 'cdg'
   initial_size = '1gb'
 
 [[vm]]
-  memory = '256mb'
+  memory = '512mb'
   cpu_kind = 'shared'
   cpus = 1
